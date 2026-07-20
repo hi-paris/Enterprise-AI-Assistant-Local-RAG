@@ -4,7 +4,14 @@ A question-answering assistant that runs **entirely on your own machine** — no
 
 This project is here to answer one question: **how well does RAG work when everything runs locally?** It comes with an evaluation script so you can measure retrieval quality and speed, and compare different local models.
 
-The sample documents in `documents/` are French corporate files (HR policy, security procedures, ISO 9001 quality procedures, GDPR/RGPD data protection policy, a service contract, product and installation guides, an on-call runbook). Because of that, `rag.py` is currently set up to always answer **in French**, no matter what language the question is in. Swap out that prompt if you use different documents.
+The corpus used for the experiments is entirely made up of synthetic
+documentation generated with Claude, simulating the different types of
+documents produced by a company, NovaCloud, which offers an industrial IoT
+monitoring and predictive maintenance solution aimed at SMEs and mid-sized
+manufacturing companies. The corpus in `documents/` contains 10 documents
+written in French (33 pages across the 10 documents, for a total of 500 KB),
+representative of the different types of content a company in this sector
+actually produces (HR, technical, contractual, quality, security).
 
 ## How it works
 
