@@ -39,7 +39,7 @@ documents/*.pdf  →  ingest.py  →  database/ (Chroma vector store)  →  rag.
 ├── rag_eval.py           # Checks retrieval quality and speed
 ├── eval_sets.py          # Test questions used by rag_eval.py
 ├── pyproject.toml / uv.lock   # Dependencies, managed with uv
-└── requirements.txt      # Exported from uv.lock, for tools that don't speak uv
+└── requirements.txt      # Dependencies, for tools that don't speak uv
 ```
 
 ## Requirements
