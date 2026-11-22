@@ -128,7 +128,7 @@ def ask(question):
     conversation.append({"role": "user", "content": question})
     conversation.append({"role": "assistant", "content": answer})
     # Keep the system prompt plus the last MAX_HISTORY turns.
-    conversation[:] = [conversation[0]] + conversation[-MAX_HISTORY:]
+    conversation[:] = [conversation[0]] + conversation[1:][-MAX_HISTORY:]
 
     return answer
 

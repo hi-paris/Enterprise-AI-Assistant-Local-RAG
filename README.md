@@ -36,7 +36,7 @@ documents/*.pdf  →  ingest.py  →  database/ (Chroma vector store)  →  rag.
 ├── embeddings.py         # Shared embedding model
 ├── ingest.py             # Builds the vector database from documents/
 ├── rag.py                # The assistant itself (chat loop)
-├── rag_eval.py           # Checks retrieval quality and speed
+├── rag_eval.py           # Checks retrieval quality, answers and speed
 ├── eval_sets.py          # Test questions used by rag_eval.py
 ├── pyproject.toml / uv.lock   # Dependencies, managed with uv
 └── requirements.txt      # Dependencies, for tools that don't speak uv
@@ -120,6 +120,7 @@ This runs a set of test questions (in French, matching the sample documents) and
 
 - **Retrieval quality** — source accuracy, page accuracy, keyword recall, hit-rate@k, and raw distance scores 
 - **Speed** — retrieval time, generation time, and total time
+- **Answers** — share of the expected keywords found in the generated answer
 
 The test questions live in `eval_sets.py`. Edit `run_evaluation()` in `rag_eval.py` to switch between `EVALUATION_SET_simple`, `EVALUATION_SET_medium`, and `EVALUATION_SET_advanced`.
 
