@@ -100,6 +100,18 @@ class RagEvalTests(unittest.TestCase):
         run_eval(0.10, "ok")
         self.assertEqual([len(roles) for roles in STATE["calls"]], [2, 2, 2])
 
+    def test_system_prompt_is_not_repeated(self):
+        for name in ("rag", "rag_eval"):
+            sys.modules.pop(name, None)
+        STATE.update(distance=0.10, answer="ok", calls=[])
+        import rag
+        rag.ask(QUESTIONS[0]["question"])
+        rag.ask(QUESTIONS[1]["question"])
+        self.assertEqual(STATE["calls"][1], ["system", "user", "assistant", "user"])
+        self.assertEqual(rag.conversation[0]["role"], "system")
+        self.assertEqual([m["role"] for m in rag.conversation[1:]],
+                         ["user", "assistant", "user", "assistant"])
+
 
 if __name__ == "__main__":
     unittest.main()
