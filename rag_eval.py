@@ -1,11 +1,12 @@
 """
 Evaluation script for the RAG pipeline.
 
-For a list of test questions, this checks two things at once:
+For a list of test questions, this checks three things at once:
 1. Retrieval quality - did we fetch the right chunk, from the right
    document and page, containing the words we expect?
 2. Latency - how long did the full pipeline (retrieval + generation)
    take to answer, using the real ask() function from rag.py?
+3. Answer - do the words we expect appear in the generated answer?
 
 Run it directly with `python rag_eval.py`.
 """
@@ -15,6 +16,7 @@ warnings.filterwarnings("ignore")
 
 import time
 
+import rag
 from rag import db, ask, MAX_DISTANCE
 from eval_sets import EVALUATION_SET_simple, EVALUATION_SET_medium, EVALUATION_SET_advanced
 
@@ -32,7 +34,8 @@ def evaluate_sample(sample):
     Checks the top retrieved chunk against what we expected (right
     document, right page, right keywords), checks whether the correct
     document shows up anywhere in the top-k results, then calls the real
-    ask() from rag.py to time the full retrieval + generation pipeline.
+    ask() from rag.py to time the full retrieval + generation pipeline
+    and checks the expected keywords against its answer.
 
     Returns a dict with all these scores plus the generated answer,
     ready to be printed or averaged across the whole evaluation set.
@@ -67,11 +70,31 @@ def evaluate_sample(sample):
         for doc, _ in results
     )
 
+    # ask() drops chunks above MAX_DISTANCE before prompting, so this is the
+    # same check restricted to the chunks the model actually receives.
+    hit_in_topk_within_distance = any(
+        sample["expected_source"] in doc.metadata.get("source", "")
+        for doc, score in results
+        if score <= MAX_DISTANCE
+    )
+
+    # Start every question from the system prompt only, so an earlier question
+    # (and its answer) cannot change the next one.
+    del rag.conversation[1:]
+
     # Simple wall-clock latency for the full pipeline (retrieval + generation),
     # reusing rag.py's actual ask() so it reflects real production timing.
     start = time.perf_counter()
     answer = ask(sample["question"])
     latency_ms = (time.perf_counter() - start) * 1000
+
+    # Do the words we expect appear in the generated answer itself?
+    answer_text = answer.lower()
+    answer_found_keywords = [
+        kw for kw in sample["expected_keywords"]
+        if kw.lower() in answer_text
+    ]
+    answer_keyword_recall = len(answer_found_keywords) / len(sample["expected_keywords"])
 
     return {
         "question": sample["question"],
@@ -83,7 +106,10 @@ def evaluate_sample(sample):
         "top_score": top_score,
         "all_scores": [score for _, score in results],
         "hit_in_topk": hit_in_topk,
+        "hit_in_topk_within_distance": hit_in_topk_within_distance,
         "under_max_distance": top_score <= MAX_DISTANCE,
+        "answer_keyword_recall": answer_keyword_recall,
+        "answer_found_keywords": answer_found_keywords,
         "answer": answer,
         "latency_ms": latency_ms,
     }
@@ -93,7 +119,7 @@ def run_evaluation():
     """
     Score every question in Evaluation set, print a per-question
     breakdown, then print an overall summary (accuracy, recall, hit rate,
-    average distance, average latency) across the whole set.
+    answer keyword recall, average distance, average latency) across the whole set.
     """
     
     #Should be EVALUATION_SET_simple, EVALUATION_SET_medium, or EVALUATION_SET_advanced 
@@ -107,6 +133,8 @@ def run_evaluation():
     page_accuracy = sum(r["page_match"] for r in report) / total
     keyword_recall = sum(r["keyword_recall"] for r in report) / total
     hit_rate_at_k = sum(r["hit_in_topk"] for r in report) / total
+    hit_rate_within = sum(r["hit_in_topk_within_distance"] for r in report) / total
+    answer_recall = sum(r["answer_keyword_recall"] for r in report) / total
     avg_top_score = sum(r["top_score"] for r in report) / total
     avg_latency_ms = sum(r["latency_ms"] for r in report) / total
 
@@ -123,6 +151,7 @@ def run_evaluation():
         print(f"  Top-1 distance     : {r['top_score']:.4f} (MAX_DISTANCE={MAX_DISTANCE}, under={r['under_max_distance']})")
         print(f"  All top-{K} scores  : {[f'{s:.4f}' for s in r['all_scores']]}")
         print(f"  Hit in top-{K}      : {r['hit_in_topk']}")
+        print(f"  Answer keyword recall: {r['answer_keyword_recall']:.0%} ({r['answer_found_keywords']})")
         print(f"  Latency (end-to-end): {r['latency_ms']:.1f} ms")
         print(f"  Ground truth        : {r['expected_keywords']}")
         print(f"  Generated answer    : {r['answer']}")
@@ -134,6 +163,8 @@ def run_evaluation():
     print(f"Page Accuracy (top-1)     : {page_accuracy:.2%}")
     print(f"Keyword Recall (top-1)    : {keyword_recall:.2%}")
     print(f"Hit Rate @ {K} (Recall@{K})  : {hit_rate_at_k:.2%}")
+    print(f"Hit Rate @ {K} within MAX_DISTANCE: {hit_rate_within:.2%}")
+    print(f"Answer Keyword Recall     : {answer_recall:.2%}")
     print(f"Avg Top-1 Distance        : {avg_top_score:.4f}")
     print(f"Avg Latency (end-to-end)  : {avg_latency_ms:.1f} ms")
 
